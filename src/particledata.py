@@ -69,5 +69,5 @@ class ParticleData:
         self.velocity[:, 0] = np.random.randint(min_velocity, max_velocity, size=self.num_particles)
         self.velocity[:, 1] = np.random.randint(min_velocity, max_velocity, size=self.num_particles)
 
-    def get_particle(self, index):
+    def get_particle(self, index) -> np.ndarray:
         return self.particles[index]

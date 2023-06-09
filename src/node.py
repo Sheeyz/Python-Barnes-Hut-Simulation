@@ -1,6 +1,7 @@
 import numpy as np
 from particledata import ParticleData
 
+
 class QuadtreeNode:
     """
     A class that represents a node in a quadtree.
@@ -28,7 +29,7 @@ class QuadtreeNode:
         self.com = np.zeros(2, int)
         self.total_mass = 0
 
-    def subdivide(self, particle_data: np.array):
+    def subdivide(self, particle_data: ParticleData) -> None:
         """
         Subdivides the current node into four child nodes and assigns the particles to the appropriate child nodes.
 
@@ -50,11 +51,11 @@ class QuadtreeNode:
             for particle_index in self.particle_indices:
                 particle = particle_data.get_particle(particle_index)
                 x, y = particle['position']
-                child = self.get_child_node(x,y)
+                child = self.contains(x,y)
                 child.particle_indices.append(particle_index)
                 child.subdivide(particle_data)
 
-    def get_child_node(self, x: int, y: int):
+    def contains(self, x: int, y: int) -> 'QuadtreeNode':
         """
         Returns the child node that contains the given coordinates (x, y).
 
