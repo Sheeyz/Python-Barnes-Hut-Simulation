@@ -27,11 +27,23 @@ class QuadtreeNode:
         self.particle_indices = []
         self.children = {"nw": None, "ne": None, "sw": None, "se": None}
         self.com = np.zeros(2, int)
-        self.total_mass = 0
 
-    def subdivide(self, particle_data: ParticleData) -> None:
+    def build_quadtree(self, particle_data:ParticleData) -> None:
         """
-        Subdivides the current node into four child nodes and assigns the particles to the appropriate child nodes.
+        Builds the quadtree structure by initializing the root node and recursively subdiving it.
+
+        Parameters:
+            particle_data (ParticleData): An instance of ParticleData containing the particle information
+
+        Returns:
+            None
+        """
+        self.particle_indices = list(range(particle_data.num_particles))
+        self._subdivide(particle_data)
+
+    def _subdivide(self, particle_data: ParticleData) -> None:
+        """
+        Recursively subdivides the current node into four child nodes and assigns the particles to the appropriate child nodes. Is meant to be called on the root node of a quadtree structure.
 
         Parameters:
             particle_data (ParticleData): An instance of ParticleData containing the particle information.
@@ -53,7 +65,12 @@ class QuadtreeNode:
                 x, y = particle['position']
                 child = self.contains(x,y)
                 child.particle_indices.append(particle_index)
-                child.subdivide(particle_data)
+                child._subdivide(particle_data)
+
+                self.com += particle['position']
+
+        if self.total_mass != 0:
+            self.com /= len(self.particle_indices)
 
     def contains(self, x: int, y: int) -> 'QuadtreeNode':
         """
@@ -79,4 +96,3 @@ class QuadtreeNode:
                 return self.children['ne']
             else:
                 return self.children['se']
-            
