@@ -24,7 +24,7 @@ class ParticleData:
     force : ndarray
         Array representing particle forces.
     """
-    def __init__(self, num_particles: int, dtype=np.int16):
+    def __init__(self, num_particles: int, dtype=np.int16) -> None:
         """
         Initialize ParticleData with the given number of particles and datatype.
 
@@ -49,7 +49,7 @@ class ParticleData:
         self.velocity = self.particles['velocity']
         self.force = self.particles['force']
 
-    def initialize_particles(self, min_position:int, max_position: int, min_velocity:int, max_velocity:int):
+    def initialize_particles(self, min_position:int, max_position: int, min_velocity:int, max_velocity:int) -> None:
         """
         Initialize particle positions and velocities with random values.
 
@@ -68,3 +68,6 @@ class ParticleData:
         self.position[:, 1] = np.random.randint(min_position, max_position + 1, size = self.num_particles)
         self.velocity[:, 0] = np.random.randint(min_velocity, max_velocity, size=self.num_particles)
         self.velocity[:, 1] = np.random.randint(min_velocity, max_velocity, size=self.num_particles)
+
+    def get_particle(self, index):
+        return self.particles[index]
