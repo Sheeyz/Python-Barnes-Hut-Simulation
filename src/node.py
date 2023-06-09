@@ -63,16 +63,16 @@ class QuadtreeNode:
             for particle_index in self.particle_indices:
                 particle = particle_data.get_particle(particle_index)
                 x, y = particle['position']
-                child = self.contains(x,y)
+                child = self._contains(x,y)
                 child.particle_indices.append(particle_index)
                 child._subdivide(particle_data)
 
                 self.com += particle['position']
 
-        if self.total_mass != 0:
+        if len(self.particle_indices) != 0:
             self.com /= len(self.particle_indices)
 
-    def contains(self, x: int, y: int) -> 'QuadtreeNode':
+    def _contains(self, x: int, y: int) -> 'QuadtreeNode':
         """
         Returns the child node that contains the given coordinates (x, y).
 
