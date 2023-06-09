@@ -63,11 +63,13 @@ class ParticleData:
             The minimum value for particle velocities.
         max_velocity : int
             The maximum value for particle velocities.
+
+            The bounds for these parameters is defined by the border height and width for animation, although it might make more sense to create a different distribution of particles then randomly across the whole screen.
         """
         self.position[:, 0] = np.random.randint(min_position, max_position + 1, size = self.num_particles)
         self.position[:, 1] = np.random.randint(min_position, max_position + 1, size = self.num_particles)
         self.velocity[:, 0] = np.random.randint(min_velocity, max_velocity, size=self.num_particles)
         self.velocity[:, 1] = np.random.randint(min_velocity, max_velocity, size=self.num_particles)
 
-    def get_particle(self, index) -> np.ndarray:
+    def get_particle(self, index:int) -> np.ndarray:
         return self.particles[index]
