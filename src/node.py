@@ -21,15 +21,16 @@ class QuadtreeNode:
         com (numpy.ndarray): The center of mass of the node.
         total_mass (int): The total mass of the particles contained in the node.
     """
-    def __init__(self, parent, rect: tuple) -> None:
+    def __init__(self, parent, rect: tuple, particle_data:ParticleData) -> None:
         self.parent = parent
         self.x0,self.x1,self.y0,self.y1 = rect
         self.particle_indices = []
         self.children = {"nw": None, "ne": None, "sw": None, "se": None}
         self.com = np.zeros(2, np.float32)
         self.total_mass = 0
+        self.particle_data = particle_data
 
-    def build_quadtree(self, particle_data:ParticleData) -> None:
+    def build_quadtree(self) -> None:
         """
         Builds the quadtree structure by initializing the root node and recursively subdiving it.
 
@@ -39,15 +40,46 @@ class QuadtreeNode:
         Returns:
             None
         """
-        self.particle_indices = list(range(particle_data.num_particles))
-        self._recursive_subdivision(particle_data)
+        self.particle_indices = list(range(self.particle_data.num_particles))
+        self._recursive_subdivision(self.particle_data)
 
-    def _recursive_subdivision(self, particle_data: ParticleData) -> None:
+    def update(self) -> None:
+        """
+        Update the quadtree by removing particles that have moved out of the node and reinserting them.
+
+        Returns:
+            None
+        """
+        reinsert_particles = []
+        remove_particles = []
+
+        for particle_index in self.particle_indices:
+            particle = self.get_particle(particle_index)
+            x,y = particle['position']
+            if not self._contains(x,y) and self.parent == None:
+                remove_particles.append(particle_index)
+                self._recursively_remove_particle_from_nodes(particle_index)
+            else:
+                reinsert_particles.append(particle_index)
+                self._recursively_remove_particle_from_nodes(particle_index)
+
+        self._recursively_reinsert_particles(reinsert_particles)
+        self.particle_data.remove(remove_particles)
+        self._update_properties()
+        for child_node in self.children.values():
+            if child_node is not None:
+                child_node.update()
+
+
+    def _get_root_node(self):
+        if self.parent == None:
+            return self
+        else:
+            return self.parent._get_root_node()
+
+    def _recursive_subdivision(self) -> None:
         """
         Recursively subdivides the current node into four child nodes and assigns the particles to the appropriate child nodes. Is meant to be called on the root node of a quadtree structure.
-
-        Parameters:
-            particle_data (ParticleData): An instance of ParticleData containing the particle information.
 
         Returns:
             None
@@ -62,11 +94,11 @@ class QuadtreeNode:
             self.children['se'] = QuadtreeNode(self, (x_mid, self.x1, self.y0, y_mid))
 
             for particle_index in self.particle_indices:
-                particle = particle_data.get_particle(particle_index)
+                particle = self.particle_data.get_particle(particle_index)
                 x, y = particle['position']
                 child = self._contains(x,y)
                 child.particle_indices.append(particle_index)
-                child._recursive_subdivision(particle_data)
+                child._recursive_subdivision()
 
                 self.com += particle['position']
                 self.total_mass += 1
@@ -85,6 +117,10 @@ class QuadtreeNode:
         Returns:
             QuadtreeNode: The child node that contains the given coordinates (x, y).
         """
+        root_node = self._get_root_node
+        root_x0, root_x1, root_y0, root_y1 = root_node.x0, root_node.x1, root_node.y0, root_node.y1
+        if x < root_x0 or x > root_x1 or y < root_y0 or y > root_y1:
+            return None
         x_mid = (self.x0 + self.x1) / 2
         y_mid = (self.y0 + self.y1) / 2
 
@@ -130,7 +166,7 @@ class QuadtreeNode:
         else:
             return self.total_mass / (node_height * node_width)
         
-    def _recursively_remove_particle_from_nodes(self, particle_index: int, particle_data: ParticleData) -> None:
+    def _recursively_remove_particle_from_nodes(self, particle_index: int) -> None:
         if all(child is None for child in self.children.values()):
             return
         
@@ -140,26 +176,25 @@ class QuadtreeNode:
             if child is not None:
                 particle_indices_copy = child.particle_indices.copy()
                 for index in particle_indices_copy:
-                    particle = particle_data.get_particle(index)
+                    particle = self.particle_data.get_particle(index)
                     x,y = particle['position']
                     if not child._contains(x,y):
                         child.particle_indices.remove(index)
 
-                self._recursively_remove_particle_from_nodes(child, particle_index, particle_data)
+                self._recursively_remove_particle_from_nodes(particle_index)
 
-    def _reinsert_particles(self, particle_data: ParticleData, reinsert_particles: list[int]) -> None:
+    def _recursively_reinsert_particles(self, reinsert_particles: list[int]) -> None:
         """
         Reinserts the removed particles into the correct nodes based on their new positions.
 
         Parameters:
-            particle_data (ParticleData): An instance of ParticleData containing the particle information.
             reinsert_particles (List[int]): A list of particle indices that need to be reinserted.
 
         Returns:
             None
         """
         for particle_index in reinsert_particles:
-            particle = particle_data.get_particle(particle_index)
+            particle = self.particle_data.get_particle(particle_index)
             x, y = particle['position']
             node = self
 
@@ -176,38 +211,10 @@ class QuadtreeNode:
 
             node.particle_indices.append(particle_index)
             
-    def update(self, particle_data:ParticleData) -> None:
-        """
-        Update the quadtree by removing particles that have moved out of the node and reinserting them.
-
-        Parameters:
-            particle_data (ParticleData): An instance of ParticleData containing the particle information.
-
-        Returns:
-            None
-        """
-        reinsert_particles = []
-
-        for particle_index in self.particle_indices:
-            particle = particle_data.get_particle(particle_index)
-            x,y = particle['position']
-            if not self._contains(x,y):
-                reinsert_particles.append(particle_index)
-                self._recursively_remove_particle_from_nodes(particle_index, particle_data)
-
-
-        self._update_properties(particle_data)
-        for child_node in self.children.values():
-            if child_node is not None:
-                child_node.update(particle_data)
-        self._reinsert_particles(particle_data, reinsert_particles)
-
-    def _update_properties(self, particle_data:ParticleData):
+    
+    def _update_properties(self):
         """
         Update the properties of the current node based on the new particle positions.
-
-        Parameters:
-            particle_data (ParticleData): An instance of ParticleData containing the particle information.
 
         Returns:
             None
@@ -216,7 +223,7 @@ class QuadtreeNode:
         self.total_mass = 0
 
         for particle_index in self.particle_indices:
-            particle = particle_data.get_particle(particle_index)
+            particle = self.particle_data.get_particle(particle_index)
             self.com += particle['position']
             self.total_mass += 1
 
@@ -226,5 +233,5 @@ class QuadtreeNode:
 
         for child_node in self.children.values():
             if child_node is not None:
-                child_node._update_properties(particle_data)
+                child_node._update_properties(self.particle_data)
         

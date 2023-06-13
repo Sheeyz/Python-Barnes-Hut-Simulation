@@ -62,3 +62,11 @@ class ParticleData:
 
     def get_particle(self, index:int) -> np.ndarray:
         return self.particles[index]
+    
+    def remove(self, remove_particles:list[int]) -> None:
+        self.particles = np.delete(self.particles, remove_particles)
+        self.num_particles = len(self.particles)
+
+        self.position=self.particles['position']
+        self.velocity=self.particles['velocity']
+        self.force=self.particles['force']
