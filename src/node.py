@@ -12,10 +12,10 @@ class QuadtreeNode:
 
     Attributes:
         parent (QuadtreeNode): The parent node of the current node.
-        x0 (int): The minimum x-coordinate of the node's rectangle.
-        x1 (int): The maximum x-coordinate of the node's rectangle.
-        y0 (int): The minimum y-coordinate of the node's rectangle.
-        y1 (int): The maximum y-coordinate of the node's rectangle.
+        x0 (float): The minimum x-coordinate of the node's rectangle.
+        x1 (float): The maximum x-coordinate of the node's rectangle.
+        y0 (float): The minimum y-coordinate of the node's rectangle.
+        y1 (float): The maximum y-coordinate of the node's rectangle.
         particle_indices (list): A list of indices of the particles contained in the node.
         children (dict): A dictionary containing references to the four child nodes of the current node (nw, ne, sw, se).
         com (numpy.ndarray): The center of mass of the node.
@@ -26,7 +26,8 @@ class QuadtreeNode:
         self.x0,self.x1,self.y0,self.y1 = rect
         self.particle_indices = []
         self.children = {"nw": None, "ne": None, "sw": None, "se": None}
-        self.com = np.zeros(2, int)
+        self.com = np.zeros(2, np.float32)
+        self.total_mass = 0
 
     def build_quadtree(self, particle_data:ParticleData) -> None:
         """
@@ -41,7 +42,7 @@ class QuadtreeNode:
         self.particle_indices = list(range(particle_data.num_particles))
         self._subdivide(particle_data)
 
-    def _subdivide(self, particle_data: ParticleData) -> None:
+    def _recursive_subdivision(self, particle_data: ParticleData) -> None:
         """
         Recursively subdivides the current node into four child nodes and assigns the particles to the appropriate child nodes. Is meant to be called on the root node of a quadtree structure.
 
@@ -51,7 +52,7 @@ class QuadtreeNode:
         Returns:
             None
         """
-        if len(self.particle_indices) > 1:
+        if self._compute_density() > 1:
             x_mid = (self.x1 + self.x0) / 2
             y_mid = (self.y1 + self.y0) / 2
 
@@ -68,9 +69,10 @@ class QuadtreeNode:
                 child._subdivide(particle_data)
 
                 self.com += particle['position']
+                self.total_mass += 1
 
-        if len(self.particle_indices) != 0:
-            self.com /= len(self.particle_indices)
+        if self.total_mass > 0:
+            self.com /= self.total_mass
 
     def _contains(self, x: int, y: int) -> 'QuadtreeNode':
         """
@@ -96,3 +98,93 @@ class QuadtreeNode:
                 return self.children['ne']
             else:
                 return self.children['se']
+
+    def _compute_density(self, node) -> float:
+        """
+        Calculate the density of a node in a 2D tree structure.
+
+        Parameters
+        ----------
+        node : Node object
+            The node for which the density needs to be computed. The node should have the following attributes:
+                - x0 : float
+                    The x-coordinate of the node's lower-left corner.
+                - y0 : float
+                    The y-coordinate of the node's lower-left corner.
+                - x1 : float
+                    The x-coordinate of the node's upper-right corner.
+                - y1 : float
+                    The y-coordinate of the node's upper-right corner.
+                - total_mass : float
+                    The total mass of particles contained within the node.
+
+        Returns
+        -------
+        float
+            The density of the node, computed as the total mass divided by the area of the node.
+        """
+        node_width = (node.x1-node.x0)
+        node_height = (node.y1-node.y0)
+        if (node_width) == 0 or (node_height) == 0:
+            return 0.0
+        else:
+            return node.total_mass / (node_height * node_width)
+        
+    def update(self, particle_data) -> None:
+        """
+        Update the quadtree by removing particles that have moved out of the node and reinserting them.
+
+        Parameters:
+            particle_data (ParticleData): An instance of ParticleData containing the particle information.
+
+        Returns:
+            None
+        """
+        reinsert_particles = []
+
+        for particle_index in self.particle_indices:
+            particle = particle_data.get_particle(particle_index)
+            x, y = particle['position']
+            if not self._contains(x,y):
+                self.particle_indices.remove(particle_index)
+
+                reinsert_particles.append(particle_index)
+
+        for particle_index in reinsert_particles:
+            particle = particle_data.get_particle(particle_index)
+            x,y = particle['position']
+            child_node = self._contains(x,y)
+
+            child_node.particle_indices.append(particle_index)
+
+        self._update_properties(particle_data)
+        for child_node in self.children.values():
+            if child_node is not None:
+                child_node.update(particle_data)
+
+    def _update_properties(self, particle_data):
+        """
+        Update the properties of the current node based on the new particle positions.
+
+        Parameters:
+            particle_data (ParticleData): An instance of ParticleData containing the particle information.
+
+        Returns:
+            None
+        """
+        self.com = np.zeros(2, dtype=int)
+        self.total_mass = 0
+
+        for particle_index in self.particle_indices:
+            particle = particle_data.get_particle(particle_index)
+            self.com += particle['position']
+            self.total_mass += 1
+
+        if self.total_mass > 0:
+            self.com /= self.total_mass
+
+
+        for child_node in self.children.values():
+            if child_node is not None:
+                child_node._update_properties(particle_data)
+        
