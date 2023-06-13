@@ -8,7 +8,7 @@ class ParticleData:
     ----------
     num_particles : int
         The number of particles.
-    dtype : int16
+    dtype : float32
         The datatype for the values in the position, velocity, and force arrays.
 
     Attributes
@@ -24,18 +24,7 @@ class ParticleData:
     force : ndarray
         Array representing particle forces.
     """
-    def __init__(self, num_particles: int, dtype=np.int16) -> None:
-        """
-        Initialize ParticleData with the given number of particles and datatype.
-
-        Parameters
-        ----------
-        num_particles : int
-            The number of particles.
-        dtype : numpy dtype, optional
-            The datatype for the values in the position, velocity, and force arrays.
-            Default is np.int16.
-        """
+    def __init__(self, num_particles: int, dtype=np.float32) -> None:
         self.num_particles = num_particles
 
         dtype = [
@@ -49,27 +38,27 @@ class ParticleData:
         self.velocity = self.particles['velocity']
         self.force = self.particles['force']
 
-    def initialize_particles(self, min_position:int, max_position: int, min_velocity:int, max_velocity:int) -> None:
+    def initialize_particles(self, min_position:float, max_position:float, min_velocity:float, max_velocity:float) -> None:
         """
         Initialize particle positions and velocities with random values.
 
         Parameters
         ----------
-        min_position : int
+        min_position : float
             The minimum value for particle positions.
-        max_position : int
+        max_position : float
             The maximum value for particle positions.
-        min_velocity : int
+        min_velocity : float
             The minimum value for particle velocities.
-        max_velocity : int
+        max_velocity : float
             The maximum value for particle velocities.
 
             The bounds for these parameters is defined by the border height and width for animation, although it might make more sense to create a different distribution of particles then randomly across the whole screen.
         """
-        self.position[:, 0] = np.random.randint(min_position, max_position + 1, size = self.num_particles)
-        self.position[:, 1] = np.random.randint(min_position, max_position + 1, size = self.num_particles)
-        self.velocity[:, 0] = np.random.randint(min_velocity, max_velocity, size=self.num_particles)
-        self.velocity[:, 1] = np.random.randint(min_velocity, max_velocity, size=self.num_particles)
+        self.position[:, 0] = np.random.uniform(min_position, max_position + 1, size = self.num_particles)
+        self.position[:, 1] = np.random.uniform(min_position, max_position + 1, size = self.num_particles)
+        self.velocity[:, 0] = np.random.uniform(min_velocity, max_velocity, size=self.num_particles)
+        self.velocity[:, 1] = np.random.uniform(min_velocity, max_velocity, size=self.num_particles)
 
     def get_particle(self, index:int) -> np.ndarray:
         return self.particles[index]
