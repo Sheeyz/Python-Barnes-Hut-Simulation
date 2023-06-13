@@ -2,7 +2,7 @@ from node import QuadtreeNode
 from particledata import ParticleData
 import numpy as np
 
-def build_quadtree_from_data(num_particles: int, x_min: int, x_max:int, y_min:int, y_max:int) -> QuadtreeNode:
+def initialize_quadtree_from_data(num_particles: int, x_min: int, x_max:int, y_min:int, y_max:int) -> QuadtreeNode:
     """
     Builds a quadtree structure from particle data.
 
