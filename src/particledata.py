@@ -30,13 +30,15 @@ class ParticleData:
         dtype = [
             ('position', dtype, 2),
             ('velocity', dtype, 2),
-            ('force', dtype, 2)
+            ('force', dtype, 2),
+            ('mass', dtype, 1)
         ]
 
         self.particles = np.zeros(num_particles, dtype)
         self.position = self.particles['position']
         self.velocity = self.particles['velocity']
         self.force = self.particles['force']
+        self.mass = self.particle['mass']
 
     def initialize_particles(self, min_position:float, max_position:float, min_velocity:float, max_velocity:float) -> None:
         """
@@ -70,3 +72,16 @@ class ParticleData:
         self.position=self.particles['position']
         self.velocity=self.particles['velocity']
         self.force=self.particles['force']
+
+    def integrate(self,dt) -> 'ParticleData':
+        """
+        Perform integration to update the particle positions and velocities.
+
+        Parameters:
+            dt (float): The time step for the integration.
+
+        Returns:
+            None
+        """
+        self.velocity += self.force
+        self.position += self.velocity * dt
