@@ -9,6 +9,7 @@ class QuadtreeNode:
     Parameters:
         parent (QuadtreeNode): The parent node of the current node.
         rect (tuple): A tuple representing the boundaries of the node's rectangle in the form (x0, x1, y0, y1).
+        particle_data (ParticleData): The class containing the array which houses the data for the particles.
 
     Attributes:
         parent (QuadtreeNode): The parent node of the current node.
@@ -16,32 +17,31 @@ class QuadtreeNode:
         x1 (float): The maximum x-coordinate of the node's rectangle.
         y0 (float): The minimum y-coordinate of the node's rectangle.
         y1 (float): The maximum y-coordinate of the node's rectangle.
-        particle_indices (list): A list of indices of the particles contained in the node.
+        particle_indices (dict): A list of indices of the particles contained in the node.
         children (dict): A dictionary containing references to the four child nodes of the current node (nw, ne, sw, se).
         com (numpy.ndarray): The center of mass of the node.
-        total_mass (int): The total mass of the particles contained in the node.
+        total_mass (float): The total mass of the particles contained in the node.
     """
     def __init__(self, parent, rect: tuple, particle_data:ParticleData) -> None:
         self.parent = parent
         self.x0,self.x1,self.y0,self.y1 = rect
-        self.particle_indices = []
+        self.particle_indices = {}
         self.children = {"nw": None, "ne": None, "sw": None, "se": None}
-        self.com = np.zeros(2, np.float32)
-        self.total_mass = 0
         self.particle_data = particle_data
+        self.particle = None
+        self.com = np.zeros(2)
+        self.total_mass = 0.0
+        self.theta = 0.5
 
     def build_quadtree(self) -> None:
         """
         Builds the quadtree structure by initializing the root node and recursively subdiving it.
 
-        Parameters:
-            particle_data (ParticleData): An instance of ParticleData containing the particle information
-
         Returns:
             None
         """
-        self.particle_indices = list(range(self.particle_data.num_particles))
-        self._recursive_subdivision(self.particle_data)
+        self.particle_indices = {i: self for i in range(self.particle_data.num_particles)}
+        self._recursive_subdivision()
 
     def update(self) -> None:
         """
@@ -53,26 +53,30 @@ class QuadtreeNode:
         reinsert_particles = []
         remove_particles = []
 
-        for particle_index in self.particle_indices:
-            particle = self.get_particle(particle_index)
+        for particle_index, leaf_node in self.particle_indices.items():
+            particle = leaf_node.particle
             x,y = particle['position']
-            if not self._contains(x,y) and self.parent == None:
+            if not self._contains(x,y) and self.parent is None:
                 remove_particles.append(particle_index)
-                self._recursively_remove_particle_from_nodes(particle_index)
-            else:
+                leaf_node.particle = None
+                del self.particle_indices[particle_index]
+            elif not self._contains(x,y):
                 reinsert_particles.append(particle_index)
-                self._recursively_remove_particle_from_nodes(particle_index)
+                leaf_node.particle = None
+                del self.particle_indices[particle_index]
+                
 
         self._recursively_reinsert_particles(reinsert_particles)
         self.particle_data.remove(remove_particles)
         self._update_properties()
+
         for child_node in self.children.values():
             if child_node is not None:
                 child_node.update()
 
 
     def _get_root_node(self):
-        if self.parent == None:
+        if self.parent is None:
             return self
         else:
             return self.parent._get_root_node()
@@ -97,14 +101,16 @@ class QuadtreeNode:
                 particle = self.particle_data.get_particle(particle_index)
                 x, y = particle['position']
                 child = self._contains(x,y)
-                child.particle_indices.append(particle_index)
+                child.particle_indices[particle_index] = child
+                child.particle = particle
                 child._recursive_subdivision()
 
                 self.com += particle['position']
-                self.total_mass += 1
+                self.total_mass += 1.0
 
         if self.total_mass > 0:
             self.com /= self.total_mass
+
 
     def _contains(self, x: int, y: int) -> 'QuadtreeNode':
         """
@@ -117,7 +123,7 @@ class QuadtreeNode:
         Returns:
             QuadtreeNode: The child node that contains the given coordinates (x, y).
         """
-        root_node = self._get_root_node
+        root_node = self._get_root_node()
         root_x0, root_x1, root_y0, root_y1 = root_node.x0, root_node.x1, root_node.y0, root_node.y1
         if x < root_x0 or x > root_x1 or y < root_y0 or y > root_y1:
             return None
@@ -137,35 +143,20 @@ class QuadtreeNode:
 
     def _compute_density(self) -> float:
         """
-        Calculate the density of a node in a 2D tree structure.
+        Calculate the density of a node in a 2D tree structure using the Barnes-Hut approximation.
 
-        Parameters
-        ----------
-        node : Node object
-            The node for which the density needs to be computed. The node should have the following attributes:
-                - x0 : float
-                    The x-coordinate of the node's lower-left corner.
-                - y0 : float
-                    The y-coordinate of the node's lower-left corner.
-                - x1 : float
-                    The x-coordinate of the node's upper-right corner.
-                - y1 : float
-                    The y-coordinate of the node's upper-right corner.
-                - total_mass : float
-                    The total mass of particles contained within the node.
-
-        Returns
-        -------
-        float
-            The density of the node, computed as the total mass divided by the area of the node.
+        Returns:
+            float: The density of the node, computed based on the Barnes-Hut approximation.
         """
-        node_width = (self.x1 - self.x0)
-        node_height = (self.y1 - self.y0)
-        if (node_width) == 0 or (node_height) == 0:
-            return 0.0
-        else:
-            return self.total_mass / (node_height * node_width)
-        
+        node_width = self.x1 - self.x0
+        node_height = self.y1 - self.y0
+        node_size = max(node_width, node_height)
+        positions = [particle['position'] for particle in self.particle_indices.values()]
+        distance = np.linalg.norm(self.com - positions, axis=1)
+        distance = np.where(distance == 0, 1e-6, distance)
+        theta = node_size / distance
+        return np.sum([particle['mass'] / theta[i] for i, particle in self.particle_indices.items()])
+    
     def _recursively_remove_particle_from_nodes(self, particle_index: int) -> None:
         if all(child is None for child in self.children.values()):
             return
@@ -210,9 +201,8 @@ class QuadtreeNode:
                 node = child
 
             node.particle_indices.append(particle_index)
-            
-    
-    def _update_properties(self):
+
+    def _update_properties(self) -> None:
         """
         Update the properties of the current node based on the new particle positions.
 
@@ -234,4 +224,56 @@ class QuadtreeNode:
         for child_node in self.children.values():
             if child_node is not None:
                 child_node._update_properties(self.particle_data)
+
+    def calculate(self):
+         """
+    Calculate the forces acting on particles using the Barnes-Hut algorithm and the quadtree structure.
+
+    Returns:
+        ParticleData: The updated particle data with calculated forces.
+        """
+         particle_data = self.particle_data
+
+         for particle_index in range(particle_data.num_particles):
+             particle = particle_data.get_particle(particle_index)
+             x,y = particle['positon']
+             force = np.zeros(2, dtype=np.float32)
+
+             self._calculate_force( particle_index, x, y, force)
+         
+             particle['force'] = force
+         
+         return particle_data
+    
+    def _calculate_force(self, particle_index: int, x: float, y:float, force:np.ndarray):
+        """
+        Calculate the net force acting on a particle recursively by traversing the quadtree.
+
+        Parameters:
+            particle_index (int): The index of the particle for which to calculate the force.
+            x (float): The x-coordinate of the particle.
+            y (float): The y-coordinate of the particle.
+            force (numpy.ndarray): The array to store the calculated net force.
+
+        Returns:
+            None
+        """
+        if self is None:
+            return
         
+        if self.particle_indices and len(self.particle_indices) == 1 and self.particle_indices[0] == particle_index:
+            return
+        
+        if self.theta < 0.5:
+            particle = self.particle_data.get_particle(particle_index)
+            dx = self.com[0] - x
+            dy = self.com[1] - y
+            r_squared = dx ** 2 + dy ** 2
+            force_magnitude = particle['mass'] / r_squared
+            force[0] += force_magnitude * dx
+            force[1] += force_magnitude * dy
+
+        else:
+            for child_node in self.children.values():
+                if child_node is not None:
+                    child_node._calculate_force(particle_index, x, y, force)
