@@ -38,7 +38,7 @@ class ParticleData:
         self.position = self.particles['position']
         self.velocity = self.particles['velocity']
         self.force = self.particles['force']
-        self.mass = self.particle['mass']
+        self.mass = self.particles['mass']
 
     def initialize_particles(self, min_position:float, max_position:float, min_velocity:float, max_velocity:float) -> None:
         """
@@ -73,7 +73,7 @@ class ParticleData:
         self.velocity=self.particles['velocity']
         self.force=self.particles['force']
 
-    def integrate(self,dt) -> 'ParticleData':
+    def integrate(self,dt) -> None:
         """
         Perform integration to update the particle positions and velocities.
 
