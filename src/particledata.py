@@ -83,5 +83,4 @@ class ParticleData:
         Returns:
             None
         """
-        self.velocity += self.force
-        self.position += self.velocity * dt
+        self.position += self.velocity * dt + 0.5 * self.force * dt**2
