@@ -23,17 +23,17 @@ class ParticleData:
         Array representing particle velocities.
     force : ndarray
         Array representing particle forces.
-    mass : ndarray
-        Array representing particle mass.
     """
     def __init__(self, num_particles: int, dtype=np.float32) -> None:
         self.num_particles = num_particles
+
         dtype = [
             ('position', dtype, 2),
             ('velocity', dtype, 2),
             ('force', dtype, 2),
             ('mass', dtype, 1)
         ]
+
         self.particles = np.zeros(num_particles, dtype)
         self.position = self.particles['position']
         self.velocity = self.particles['velocity']
@@ -64,6 +64,14 @@ class ParticleData:
 
     def get_particle(self, index:int) -> np.ndarray:
         return self.particles[index]
+    
+    def remove(self, remove_particles:list[int]) -> None:
+        self.particles = np.delete(self.particles, remove_particles)
+        self.num_particles = len(self.particles)
+
+        self.position=self.particles['position']
+        self.velocity=self.particles['velocity']
+        self.force=self.particles['force']
 
     def integrate(self,dt) -> None:
         """
@@ -75,5 +83,5 @@ class ParticleData:
         Returns:
             None
         """
-        self.position += self.velocity * dt + 0.5 * self.force * dt**2
-        
+        self.velocity += self.force
+        self.position += self.velocity * dt
