@@ -31,7 +31,8 @@ class ParticleData:
             ('position', dtype, 2),
             ('velocity', dtype, 2),
             ('force', dtype, 2),
-            ('mass', dtype, 1)
+            ('mass', dtype, 1),
+            ('previous_position', dtype, 2)
         ]
 
         self.particles = np.zeros(num_particles, dtype)
@@ -39,6 +40,7 @@ class ParticleData:
         self.velocity = self.particles['velocity']
         self.force = self.particles['force']
         self.mass = self.particles['mass']
+        self.previous_position = self.particles['previous_position']
 
     def initialize_particles(self, min_position:float, max_position:float, min_velocity:float, max_velocity:float) -> None:
         """
@@ -63,19 +65,20 @@ class ParticleData:
         self.velocity[:, 1] = np.random.uniform(min_velocity, max_velocity, size=self.num_particles)
 
     def get_particle(self, index:int) -> np.ndarray:
+        """
+        Retrieve the particle data at the specified index.
+
+        Parameters:
+            index (int): Index of the particle.
+
+        Returns:
+            np.ndarray: Particle data at the given index.
+        """
         return self.particles[index]
     
-    def remove(self, remove_particles:list[int]) -> None:
-        self.particles = np.delete(self.particles, remove_particles)
-        self.num_particles = len(self.particles)
-
-        self.position=self.particles['position']
-        self.velocity=self.particles['velocity']
-        self.force=self.particles['force']
-
     def integrate(self,dt) -> None:
         """
-        Perform integration to update the particle positions and velocities.
+        Perform integration to update the particle positions and velocities given the force acting on them.
 
         Parameters:
             dt (float): The time step for the integration.
@@ -83,4 +86,18 @@ class ParticleData:
         Returns:
             None
         """
-        self.position += self.velocity * dt + 0.5 * self.force * dt**2
+        for particle_index in range(self.num_particles):
+            particle = self.get_particle(particle_index)
+            mass = particle['mass']
+            force = particle['force']
+            position = particle['position']
+            previous_position = particle['previous_position']
+            if mass != 0:
+                acceleration = force / mass
+            else:
+                acceleration = np.zeros(2)
+            position_new = 2 * position - previous_position + acceleration * dt**2
+            particle['previous_position'] = position
+            particle['position'] = position_new
+            velocity_new = (position_new - previous_position) / (2 * dt)
+            particle['velocity'] = velocity_new
