@@ -1,8 +1,8 @@
 from node import QuadtreeNode
 from particledata import ParticleData
-import numpy as np
 import sys
-
+import time
+dt = 1/60
 def initialize_quadtree_from_data(num_particles: int, x_min: int, x_max:int, y_min:int, y_max:int) -> QuadtreeNode:
     """
     Builds a quadtree structure from particle data.
@@ -25,8 +25,5 @@ def initialize_quadtree_from_data(num_particles: int, x_min: int, x_max:int, y_m
 
     return root_node
 
+root_node = initialize_quadtree_from_data(200, 0, 800, 0, 800)
 
-root_node = initialize_quadtree_from_data(10000, 0, 800, 0, 800)
-
-memory_usage = sys.getsizeof(root_node)
-print(f"Memory usage: {memory_usage} bytes")

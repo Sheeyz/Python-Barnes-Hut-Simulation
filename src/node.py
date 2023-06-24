@@ -1,7 +1,7 @@
 import numpy as np
 from particledata import ParticleData
 
-dt = 1/60
+
 class QuadtreeNode:
     """
     A class that represents a node in a quadtree.
@@ -17,11 +17,12 @@ class QuadtreeNode:
         x1 (float): The maximum x-coordinate of the node's rectangle.
         y0 (float): The minimum y-coordinate of the node's rectangle.
         y1 (float): The maximum y-coordinate of the node's rectangle.
-        particle_indices (list): A list of indices of particles contained within a node.
         children (dict): A dictionary containing references to the four child nodes of the current node (nw, ne, sw, se).
-        com (numpy.ndarray): The center of mass of the node.
         particle_data (ParticleData): The particle data that is contained within the tree.
+        particle_indices (list): A list of indices of particles contained within a node.
+        com (numpy.ndarray): The center of mass of the node.
         total_mass (float): The total mass of the particles contained in the node.
+        size (float): The largest dimension of the box contained within the coordinates defined above.
     """
     def __init__(self, parent: 'QuadtreeNode', rect: tuple, particle_data: ParticleData) -> None:
         self.parent = parent
@@ -101,12 +102,32 @@ class QuadtreeNode:
                 return self.children['se']
 
     def compute_theta(self, index, theta_max):
+        """
+        Compute theta value based on the given index and maximum theta.
+
+        Parameters:
+            index (int): Index of the particle.
+            theta_max (float): Maximum theta value.
+
+        Returns:
+            bool: True if theta is less than theta_max, False otherwise.
+        """
         particle = self.particle_data.get_particle(index)
         distance = np.sqrt(np.sum((particle['position']- self.com)**2))
         theta = self.size/distance
         return theta < theta_max
             
     def calculate(self, index, gravity):
+        """
+        Calculate the force exerted on a particle based on its index and gravity.
+
+        Parameters:
+            index (int): Index of the particle.
+            gravity (float): Strength of gravity.
+
+        Returns:
+            None
+        """
         particle = self.particle_data.get_particle(index)
         x,y = particle['position']
         if self._should_calculate_force(index) and not self._is_far_away(x, y):
@@ -124,10 +145,31 @@ class QuadtreeNode:
                     child.calculate(index, gravity)
     
     def _should_calculate_force(self, index):
+        """
+        Check if the force should be calculated for a given particle index.
+
+        Parameters:
+            index (int): Index of the particle.
+
+        Returns:
+            bool: True if the force should be calculated, False otherwise.
+        """
         return len(self.particle_indices) == 10 and index != self.particle_indices[0] or self.compute_theta(index, 1)
 
     def _is_far_away(self, x, y):
+        """
+        Check if the given coordinates are far away from the center of mass.
+
+        Parameters:
+            x (float): x-coordinate of the position.
+            y (float): y-coordinate of the position.
+
+        Returns:
+            bool: True if the coordinates are far away, False otherwise.
+        """
         dx = x - self.com[0]
         dy = y - self.com[1]
         distance = np.sqrt(dx ** 2 + dy ** 2)
         return distance > self.size
+    
+    
